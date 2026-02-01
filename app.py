@@ -1,56 +1,122 @@
 import streamlit as st
 import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
+import plotly.express as px
 
-# 1. Judul & Deskripsi
-st.set_page_config(page_title="Dashboard Skripsi - LSTM vs TCN", layout="wide")
-st.title("📊 Analisis Komparasi LSTM vs TCN")
-st.markdown("Studi kasus: Prediksi Harga Saham **BBCA.JK**")
+# --- 1. CONFIG HALAMAN ---
+st.set_page_config(
+    page_title="Dashboard Skripsi - Azmi Aziz",
+    page_icon="📈",
+    layout="wide"
+)
 
-# 2. Load Data (Otomatis membaca file CSV)
+# --- 2. SIDEBAR (PROFIL) ---
+with st.sidebar:
+    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_Homepage.svg/1200px-Google_Homepage.svg.png", width=50) # Bisa ganti logo kampus nanti
+    st.title("Parameter Penelitian")
+    st.info("""
+    **Peneliti:** Azmi Aziz
+    **Kampus:** AMIKOM Yogyakarta
+    **Topik:** Komparasi LSTM vs TCN
+    **Objek:** Saham BBCA (2010-2025)
+    """)
+    
+    st.markdown("---")
+    st.write("Dibuat dengan Python & Streamlit")
+
+# --- 3. JUDUL UTAMA ---
+st.title("📈 Analisis Komparasi Model Deep Learning")
+st.markdown("""
+Dashboard ini menampilkan hasil eksperimen perbandingan kinerja algoritma **Long Short-Term Memory (LSTM)** melawan **Temporal Convolutional Network (TCN)** dalam memprediksi harga saham **BBCA**.
+""")
+st.markdown("---")
+
+# --- 4. LOAD DATA ---
 try:
     df = pd.read_csv('Hasil_Eksperimen_Tuning.csv')
     
-    # Pastikan urutan Timeframe benar
+    # Paksa Urutan Timeframe (Harian -> Mingguan -> Bulanan)
     urutan_custom = ['Harian', 'Mingguan', 'Bulanan']
     df['Time Frame'] = pd.Categorical(df['Time Frame'], categories=urutan_custom, ordered=True)
     df = df.sort_values(by=['Time Frame', 'RMSE'])
-    
-    # Sidebar (Filter Pilihan)
-    st.sidebar.header("Filter Data")
-    timeframe_pilihan = st.sidebar.multiselect(
-        "Pilih Timeframe:",
-        options=df['Time Frame'].unique(),
-        default=df['Time Frame'].unique()
-    )
-    
-    # Filter DataFrame berdasarkan pilihan
-    df_filtered = df[df['Time Frame'].isin(timeframe_pilihan)]
 
-    # 3. Tampilkan Grafik Utama (Best Model)
-    st.subheader("🏆 Perbandingan Performa Model Terbaik")
+    # --- 5. TOP LEVEL METRICS (KARTU SKOR) ---
+    # Cari model dengan RMSE terendah (Juara 1 Dunia)
+    best_overall = df.loc[df['RMSE'].idxmin()]
     
-    # Ambil juara 1 per model per timeframe
-    best_per_model = df_filtered.groupby(['Time Frame', 'Model'], observed=True).apply(lambda x: x.nsmallest(1, 'RMSE')).reset_index(drop=True)
-    
-    col1, col2 = st.columns([2, 1])
+    col1, col2, col3 = st.columns(3)
     
     with col1:
-        fig, ax = plt.subplots(figsize=(10, 6))
-        sns.barplot(data=best_per_model, x='Time Frame', y='RMSE', hue='Model', ax=ax, palette='muted')
-        ax.set_title('RMSE Terkecil (Lebih Rendah Lebih Baik)')
-        ax.grid(axis='y', linestyle='--', alpha=0.5)
-        st.pyplot(fig)
-        
+        st.metric(
+            label="🏆 Model Terbaik (Juara Umum)",
+            value=best_overall['Model'],
+            delta=f"Timeframe {best_overall['Time Frame']}"
+        )
+    
     with col2:
-        st.write("### Data Detail (Top 5)")
-        st.dataframe(df_filtered.sort_values('RMSE').head(5)[['Time Frame', 'Model', 'RMSE', 'Units', 'LR']])
+        st.metric(
+            label="📉 RMSE Terendah",
+            value=f"{best_overall['RMSE']:.2f}",
+            delta="Makin kecil makin bagus",
+            delta_color="inverse"
+        )
+        
+    with col3:
+        st.metric(
+            label="⚙️ Konfigurasi Terbaik",
+            value=f"{best_overall['Units']} Units",
+            delta=f"LR: {best_overall['LR']}"
+        )
 
-    # 4. Tampilkan Tabel Lengkap
-    st.markdown("---")
-    st.subheader("📋 Data Lengkap Hasil Eksperimen")
-    st.dataframe(df_filtered)
+    # --- 6. GRAFIK UTAMA (INTERAKTIF PLOTLY) ---
+    st.subheader("📊 Visualisasi Perbandingan Error (RMSE)")
+    
+    # Filter Data (Ambil yang terbaik per kategori)
+    best_per_model = df.groupby(['Time Frame', 'Model'], observed=True).apply(lambda x: x.nsmallest(1, 'RMSE')).reset_index(drop=True)
+    
+    # Bikin Chart Keren
+    fig = px.bar(
+        best_per_model, 
+        x="Time Frame", 
+        y="RMSE", 
+        color="Model",
+        barmode="group",
+        text_auto='.2f', # Menampilkan angka di atas batang
+        color_discrete_map={"LSTM": "#3366CC", "TCN": "#FF9900"}, # Warna Biru vs Oranye Custom
+        title="Komparasi RMSE: LSTM vs TCN (Lebih Rendah Lebih Baik)",
+        height=500
+    )
+    
+    # Update layout biar rapi
+    fig.update_layout(
+        xaxis_title="Periode Waktu",
+        yaxis_title="Nilai RMSE (Rupiah)",
+        legend_title="Jenis Algoritma",
+        font=dict(size=14)
+    )
+    
+    # Tampilkan Chart
+    st.plotly_chart(fig, use_container_width=True)
+
+    # --- 7. DATA TABLE & INSIGHTS ---
+    col_kiri, col_kanan = st.columns([1.5, 1])
+
+    with col_kiri:
+        st.subheader("📋 Tabel Data Detail")
+        st.dataframe(
+            df[['Time Frame', 'Model', 'RMSE', 'MAE', 'MAPE (%)', 'Units', 'LR']],
+            use_container_width=True,
+            hide_index=True
+        )
+
+    with col_kanan:
+        st.subheader("💡 Insight Penting")
+        st.warning(f"""
+        **Temuan Utama:**
+        1. **{best_overall['Model']}** terbukti lebih unggul dibandingkan kompetitornya.
+        2. Timeframe **Harian** memberikan error paling kecil karena jumlah data latih lebih banyak.
+        3. Model TCN cenderung kesulitan pada data Bulanan (RMSE Melonjak).
+        """)
 
 except FileNotFoundError:
-    st.error("File 'Hasil_Eksperimen_Tuning.csv' tidak ditemukan. Pastikan file sudah diupload ke GitHub.")
+    st.error("⚠️ File 'Hasil_Eksperimen_Tuning.csv' belum diupload!")
+    st.info("Silakan upload file CSV hasil dari Google Colab ke folder yang sama dengan app.py")
