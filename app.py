@@ -11,7 +11,7 @@ st.set_page_config(
 
 # --- 2. SIDEBAR (PROFIL) ---
 with st.sidebar:
-    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_Homepage.svg/1200px-Google_Homepage.svg.png", width=50) # Bisa ganti logo kampus nanti
+    st.image("https://home.amikom.ac.id/media/2020/08/logo-amikom-t.png", width=250)
     st.title("Parameter Penelitian")
     st.info("""
     **Peneliti:** Azmi Aziz
