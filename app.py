@@ -12,7 +12,6 @@ st.title("🚀 Real-time Stock Prediction BBCA (LSTM & TCN)")
 # 2. Fungsi Load Model
 @st.cache_resource
 def load_models():
-    # Pastikan nama file ini sesuai dengan yang ada di repositori GitHub kamu
     m_harian = load_model('Tuned_LSTM_Harian_U64_LR0.001_KN.h5', compile=False)
     m_mingguan = load_model('Tuned_TCN_Mingguan_U64_LR0.001_K3.h5', compile=False)
     m_bulanan = load_model('Tuned_TCN_Bulanan_U128_LR0.001_K3.h5', compile=False)
@@ -23,7 +22,7 @@ try:
 except Exception as e:
     st.error(f"Gagal memuat model: {e}")
 
-# 3. Fungsi Prediksi Universal
+# 3. Fungsi Prediksi Universal (Fix Shape Error)
 def predict_stock(model, data, lookback):
     scaler = RobustScaler()
     scaled_data = scaler.fit_transform(data.reshape(-1, 1))
@@ -32,8 +31,7 @@ def predict_stock(model, data, lookback):
         return None
         
     last_sequence = scaled_data[-lookback:]
-    # Reshape ke 3D (1, lookback, 1) untuk model deep learning
-    last_sequence = last_sequence.reshape(1, lookback, 1)
+    last_sequence = last_sequence.reshape(1, lookback, 1) # Reshape ke 3D
     
     prediction_scaled = model.predict(last_sequence)
     prediction = scaler.inverse_transform(prediction_scaled)
@@ -42,14 +40,9 @@ def predict_stock(model, data, lookback):
 # 4. Sidebar Informasi
 with st.sidebar:
     st.write("### Informasi Dashboard")
-    st.info("""
-    Dashboard Prediksi BBCA:
-    - **Harian:** Lookback 60
-    - **Mingguan:** Lookback 24
-    - **Bulanan:** Lookback 12
-    """)
+    st.info("Bandingkan harga aktual pasar saat ini dengan hasil prediksi model AI.")
 
-# 5. Penarikan Data (Ambil 5 tahun agar data mencukupi semua timeframe)
+# 5. Penarikan Data (5 tahun agar mencukupi semua timeframe)
 df_raw = yf.download("BBCA.JK", period='5y')
 
 if not df_raw.empty:
@@ -60,49 +53,65 @@ if not df_raw.empty:
     
     close_series = close_series.dropna()
 
-    # Menggunakan Tabs untuk memisahkan Timeframe
     tab1, tab2, tab3 = st.tabs(["📅 Harian (LSTM)", "🗓️ Mingguan (TCN)", "📊 Bulanan (TCN)"])
 
     # --- TAB 1: HARIAN ---
     with tab1:
-        st.subheader("Prediksi Harga Harian")
-        last_p = float(close_series.iloc[-1])
-        st.metric("Harga Pasar Terakhir", f"Rp {last_p:,.2f}", f"Update: {df_raw.index[-1].date()}")
+        st.subheader("Analisis Perbandingan Harian")
         
-        if st.button('Mulai Prediksi Harian'):
-            with st.spinner('Menganalisis pola...'):
+        # Mengambil Harga Terakhir
+        last_p = float(close_series.iloc[-1])
+        last_d = df_raw.index[-1].date()
+
+        # Layout Kolom untuk Aktual vs Prediksi
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.metric(label="Harga Aktual Terakhir", value=f"Rp {last_p:,.2f}", delta=f"Per Tanggal: {last_d}")
+        
+        if st.button('Jalankan Prediksi Harian'):
+            with st.spinner('Menghitung prediksi...'):
                 hasil = predict_stock(model_h, close_series.values, lookback=60)
                 if hasil:
-                    st.success(f"### Hasil Prediksi Hari Besok: Rp {hasil:,.2f}")
+                    with col2:
+                        st.metric(label="Hasil Prediksi Besok", value=f"Rp {hasil:,.2f}")
+                    st.success(f"Analisis Selesai: Model memprediksi harga akan berada di kisaran Rp {hasil:,.2f}")
                     st.balloons()
 
     # --- TAB 2: MINGGUAN ---
     with tab2:
-        st.subheader("Prediksi Harga Mingguan")
+        st.subheader("Analisis Perbandingan Mingguan")
         df_weekly = close_series.resample('W-MON').last().dropna()
         last_p_w = float(df_weekly.iloc[-1])
-        st.metric("Harga Penutupan Minggu Ini", f"Rp {last_p_w:,.2f}")
         
-        if st.button('Mulai Prediksi Mingguan'):
-            with st.spinner('Menganalisis pola...'):
+        c1, c2 = st.columns(2)
+        with c1:
+            st.metric(label="Harga Aktual Minggu Ini", value=f"Rp {last_p_w:,.2f}")
+        
+        if st.button('Jalankan Prediksi Mingguan'):
+            with st.spinner('Menghitung prediksi...'):
                 hasil = predict_stock(model_m, df_weekly.values, lookback=24)
                 if hasil:
-                    st.success(f"### Hasil Prediksi Minggu Depan: Rp {hasil:,.2f}")
+                    with c2:
+                        st.metric(label="Hasil Prediksi Minggu Depan", value=f"Rp {hasil:,.2f}")
 
     # --- TAB 3: BULANAN ---
     with tab3:
-        st.subheader("Prediksi Harga Bulanan")
-        df_monthly = close_series.resample('ME').last().dropna()
+        st.subheader("Analisis Perbandingan Bulanan")
+        df_monthly = close_series.resample('ME').last().dropna() # Pakai ME untuk standar 2026
         last_p_m = float(df_monthly.iloc[-1])
-        st.metric("Harga Penutupan Bulan Ini", f"Rp {last_p_m:,.2f}")
         
-        if st.button('Mulai Prediksi Bulanan'):
-            with st.spinner('Menganalisis pola...'):
+        k1, k2 = st.columns(2)
+        with k1:
+            st.metric(label="Harga Aktual Bulan Ini", value=f"Rp {last_p_m:,.2f}")
+        
+        if st.button('Jalankan Prediksi Bulanan'):
+            with st.spinner('Menghitung prediksi...'):
                 hasil = predict_stock(model_b, df_monthly.values, lookback=12)
                 if hasil:
-                    st.success(f"### Hasil Prediksi Bulan Depan: Rp {hasil:,.2f}")
+                    with k2:
+                        st.metric(label="Hasil Prediksi Bulan Depan", value=f"Rp {hasil:,.2f}")
 
-    # Tabel Detail di bawah agar bisa dicek datanya
     with st.expander("Lihat Detail Tabel Data Historis"):
         st.dataframe(df_raw.sort_index(ascending=False), width='stretch')
 
