@@ -46,41 +46,46 @@ with st.sidebar:
     st.info("Lookback harus sesuai dengan jendela waktu saat training (default: 60).")
 
 # 5. Main UI & Data Scraping
-st.subheader("Data Saham Terkini (BBCA.JK)")
-df = yf.download("BBCA.JK", period='2y')
+st.subheader("Analisis Harga Real-time (BBCA.JK)")
+# Ambil data sedikit lebih banyak untuk memastikan grafik terisi
+df = yf.download("BBCA.JK", period='1mo', interval='1d') 
 
 if not df.empty:
-    # Solusi KeyError Adj Close (Tetap dipertahankan)
-    if 'Adj Close' in df.columns:
-        close_data = df['Adj Close']
-    elif ('Adj Close', 'BBCA.JK') in df.columns:
-        close_data = df[('Adj Close', 'BBCA.JK')]
+    # 1. Penanganan Kolom (Pastikan mengambil data Close terbaru)
+    # yfinance terbaru sering menghasilkan MultiIndex, kita ambil level terendah
+    if isinstance(df.columns, pd.MultiIndex):
+        close_data = df['Close'].iloc[:, 0]
     else:
         close_data = df['Close']
-        
-    if isinstance(close_data, pd.DataFrame):
-        close_data = close_data.iloc[:, 0]
 
-    # Grafik Harga (Visualisasi 100 hari terakhir)
-    st.line_chart(close_data.tail(100))
+    # 2. Menampilkan Grafik (Pastikan menggunakan format yang didukung Streamlit)
+    st.line_chart(close_data)
     
-    # Tabel Data (Terbaru di atas)
-    with st.expander("Lihat Tabel Data Historis"):
-        # Kita balik urutannya agar tanggal terbaru ada di baris pertama
-        df_sorted = df.sort_index(ascending=False)
-        # Menampilkan 10 data teratas
-        st.dataframe(df_sorted.head(10), use_container_width=True)
+    # 3. Output Real-time (Menampilkan Harga Saat Ini)
+    last_price = close_data.iloc[-1]
+    last_date = df.index[-1].date()
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric(label="Harga Terakhir (Market Close)", value=f"Rp {last_price:,.2f}", delta=f"Tanggal: {last_date}")
 
-    if st.button('Mulai Prediksi Harga Harian'):
-        with st.spinner('Menganalisis pola dengan Tuned LSTM...'):
+    # 4. Tabel Data (Terbaru di atas)
+    with st.expander("Lihat Tabel Data Historis"):
+        st.dataframe(df.sort_index(ascending=False), use_container_width=True)
+
+    # 5. Tombol Prediksi
+    if st.button('Mulai Prediksi Harga Selanjutnya'):
+        with st.spinner('Menganalisis pola...'):
             latest_prices = close_data.values
             hasil = predict_future(model_h, latest_prices, lookback=lookback_val)
             
             if hasil:
-                # Menampilkan hasil dengan format Rupiah yang rapi
-                st.success(f"### Prediksi harga untuk hari bursa berikutnya: Rp {hasil:,.2f}")
-                st.info(f"💡 **Informasi:** Prediksi ini menggunakan data terakhir pada tanggal {df.index[-1].date()}.")
+                with col2:
+                    st.metric(label="Hasil Prediksi Selanjutnya", value=f"Rp {hasil:,.2f}")
+                
+                st.success(f"### Analisis Selesai")
+                st.write(f"Berdasarkan data terakhir tanggal **{last_date}**, model memprediksi harga akan bergerak ke arah **Rp {hasil:,.2f}** pada hari bursa berikutnya.")
             else:
-                st.error(f"Data tidak cukup! Kamu butuh minimal {lookback_val} hari data, sedangkan data tersedia hanya {len(latest_prices)} hari.")
+                st.error(f"Data tidak cukup! Butuh {lookback_val} data, tersedia {len(latest_prices)}.")
 else:
-    st.warning("Gagal mengambil data dari Yahoo Finance. Periksa koneksi internet atau simbol saham.")
+    st.warning("Gagal mengambil data. Coba refresh halaman.")
