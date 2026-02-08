@@ -41,25 +41,60 @@ if not df_raw.empty:
 
     tab1, tab2, tab3 = st.tabs(["📅 Harian (LSTM)", "🗓️ Mingguan (TCN)", "📊 Bulanan (TCN)"])
 
-    # --- TAB 1: HARIAN ---
+   # --- TAB 1: HARIAN ---
     with tab1:
         st.subheader("Analisis Perbandingan & Prediksi Harian")
+        
+        # Data terkini
         last_p = float(close_series.iloc[-1])
         last_d = df_raw.index[-1].date()
         
-        # Hitung Prediksi untuk HARI INI (menggunakan data s/d kemarin)
+        # Prediksi untuk harga hari ini (pakai data s/d kemarin)
         pred_today = predict_stock(model_h, close_series.iloc[:-1].values, lookback=60)
 
-        st.markdown("### Perbandingan Akurasi (Data Terkini)")
+        # Bagian Atas: Metrik Utama
         c1, c2 = st.columns(2)
-        with c1: st.metric(f"Harga Aktual ({last_d})", f"Rp {last_p:,.2f}")
+        with c1: st.metric(f"Harga Aktual Terakhir ({last_d})", f"Rp {last_p:,.2f}")
         with c2: st.metric(f"Prediksi AI (untuk {last_d})", f"Rp {pred_today:,.2f}")
         
-        st.info("💡 Membandingkan harga asli bursa dengan tebakan model menggunakan data hari sebelumnya.")
         st.markdown("---")
-        if st.button('Jalankan Prediksi Masa Depan (Harian)'):
-            hasil = predict_stock(model_h, close_series.values, lookback=60)
-            st.success(f"### Estimasi Harga Besok: Rp {hasil:,.2f}")
+        
+        # Bagian Tengah: Historis Akurasi 5 Hari Terakhir
+        st.write("### 🕒 Historis Akurasi (5 Hari Bursa Terakhir)")
+        
+        history_list = []
+        # Loop untuk mengambil 5 hari ke belakang
+        for i in range(1, 6):
+            target_idx = -(i)
+            # Harga asli pada hari tersebut
+            actual_val = close_series.iloc[target_idx]
+            actual_date = close_series.index[target_idx].date()
+            
+            # Prediksi untuk hari tersebut (menggunakan data sebelum hari tersebut)
+            input_data = close_series.iloc[:target_idx].values
+            pred_val = predict_stock(model_h, input_data, lookback=60)
+            
+            # Hitung Selisih/Error (Opsional untuk analisis)
+            diff = abs(actual_val - pred_val)
+            
+            history_list.append({
+                "Tanggal": actual_date,
+                "Harga Aktual": f"Rp {actual_val:,.2f}",
+                "Prediksi AI": f"Rp {pred_val:,.2f}",
+                "Selisih (Rp)": f"{diff:,.2f}"
+            })
+        
+        st.table(pd.DataFrame(history_list))
+        st.info("💡 Tabel di atas membuktikan kemampuan model dalam memprediksi harga harian pada hari-hari sebelumnya.")
+
+        st.markdown("---")
+        
+        # Bagian Bawah: Tombol Prediksi Masa Depan
+        st.write("### 🔮 Prediksi Harga Besok")
+        if st.button('Jalankan Prediksi Masa Depan'):
+            with st.spinner('Menghitung...'):
+                hasil = predict_stock(model_h, close_series.values, lookback=60)
+                st.success(f"### Estimasi Harga Hari Bursa Selanjutnya: Rp {hasil:,.2f}")
 
     # --- TAB 2: MINGGUAN ---
     with tab2:
@@ -101,3 +136,4 @@ if not df_raw.empty:
         st.dataframe(df_raw.sort_index(ascending=False), use_container_width=True)
 else:
     st.warning("Gagal mengambil data dari Yahoo Finance.")
+
