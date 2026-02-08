@@ -69,9 +69,10 @@ if not df.empty:
             hasil = predict_future(model_h, latest_prices, lookback=lookback_val)
             
             if hasil:
-                st.success(f"Hasil Prediksi Harga Selanjutnya: Rp {hasil:,.2f}")
-                st.info(f"Tanggal Data Terakhir: {df.index[-1].date()}")
+                st.info(f"Data terakhir yang tersedia (Market Close): {df.index[-1].date()}")
+                st.success(f"Prediksi harga untuk hari bursa berikutnya: Rp {hasil:,.2f}")
             else:
                 st.error("Data tidak cukup untuk jumlah lookback tersebut.")
 else:
     st.warning("Gagal mengambil data dari Yahoo Finance.")
+
