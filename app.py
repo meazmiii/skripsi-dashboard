@@ -54,26 +54,38 @@ if not df_raw.empty:
     # Navigasi Timeframe menggunakan Tab
     tab1, tab2, tab3 = st.tabs(["📅 Harian", "🗓️ Mingguan", "📊 Bulanan"])
 
-    # --- TAB 1: HARIAN ---
+# --- TAB 1: HARIAN ---
     with tab1:
-        st.subheader("Analisis Perbandingan Harian (LSTM)")
+        st.subheader("Analisis Perbandingan & Prediksi Harian")
+        
+        # 1. Ambil data aktual terakhir dan data sebelumnya
         last_p = float(close_series.iloc[-1])
         last_d = df_raw.index[-1].date()
+        
+        # 2. Hitung 'Prediksi Hari Ini' menggunakan data kemarin (Backtesting Real-time)
+        # Kita ambil data sampai H-1 untuk melihat apa kata model tentang harga HARI INI
+        data_minus_1 = close_series.iloc[:-1].values
+        prediksi_hari_ini = predict_stock(model_h, data_minus_1, lookback=60)
 
-        # Layout Kolom untuk membandingkan secara horizontal
-        col1, col2 = st.columns(2)
+        # 3. Tampilkan Perbandingan (Kiri: Aktual, Kanan: Prediksi Model untuk Hari yang Sama)
+        st.markdown("### Perbandingan Akurasi (Data Terkini)")
+        c1, c2 = st.columns(2)
+        with c1:
+            st.metric(label=f"Harga Aktual ({last_d})", value=f"Rp {last_p:,.2f}")
+        with c2:
+            st.metric(label=f"Prediksi AI (untuk {last_d})", value=f"Rp {prediksi_hari_ini:,.2f}")
         
-        with col1:
-            st.markdown("### Harga Pasar Saat Ini")
-            st.metric(label=f"Aktual ({last_d})", value=f"Rp {last_p:,.2f}")
+        st.info("💡 Bagian ini membandingkan harga asli bursa dengan hasil prediksi model menggunakan data hari sebelumnya.")
+
+        st.markdown("---")
         
-        with col2:
-            st.markdown("### Prediksi Model AI")
-            if st.button('Hitung Prediksi Besok'):
-                hasil = predict_stock(model_h, close_series.values, lookback=60)
-                if hasil:
-                    st.metric(label="Estimasi Harga Besok", value=f"Rp {hasil:,.2f}")
-                    st.success(f"Model memprediksi harga akan bergerak ke Rp {hasil:,.2f}")
+        # 4. Tombol Prediksi Masa Depan dipindah ke bawah
+        st.markdown("### Prediksi Harga Besok")
+        if st.button('Jalankan Prediksi Masa Depan'):
+            with st.spinner('Menghitung harga besok...'):
+                hasil_besok = predict_stock(model_h, close_series.values, lookback=60)
+                if hasil_besok:
+                    st.success(f"### Estimasi Harga Hari Bursa Selanjutnya: Rp {hasil_besok:,.2f}")
 
     # --- TAB 2: MINGGUAN ---
     with tab2:
@@ -119,5 +131,6 @@ if not df_raw.empty:
 
 else:
     st.warning("Gagal menyambung ke data Yahoo Finance.")
+
 
 
