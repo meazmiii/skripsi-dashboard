@@ -50,7 +50,7 @@ st.subheader("Data Saham Terkini (BBCA.JK)")
 df = yf.download("BBCA.JK", period='2y')
 
 if not df.empty:
-    # Solusi KeyError Adj Close
+    # Solusi KeyError Adj Close (Tetap dipertahankan)
     if 'Adj Close' in df.columns:
         close_data = df['Adj Close']
     elif ('Adj Close', 'BBCA.JK') in df.columns:
@@ -61,18 +61,26 @@ if not df.empty:
     if isinstance(close_data, pd.DataFrame):
         close_data = close_data.iloc[:, 0]
 
+    # Grafik Harga (Visualisasi 100 hari terakhir)
     st.line_chart(close_data.tail(100))
+    
+    # Tabel Data (Terbaru di atas)
+    with st.expander("Lihat Tabel Data Historis"):
+        # Kita balik urutannya agar tanggal terbaru ada di baris pertama
+        df_sorted = df.sort_index(ascending=False)
+        # Menampilkan 10 data teratas
+        st.dataframe(df_sorted.head(10), use_container_width=True)
 
     if st.button('Mulai Prediksi Harga Harian'):
-        with st.spinner('Menganalisis pola...'):
+        with st.spinner('Menganalisis pola dengan Tuned LSTM...'):
             latest_prices = close_data.values
             hasil = predict_future(model_h, latest_prices, lookback=lookback_val)
             
             if hasil:
-                st.info(f"Data terakhir yang tersedia (Market Close): {df.index[-1].date()}")
-                st.success(f"Prediksi harga untuk hari bursa berikutnya: Rp {hasil:,.2f}")
+                # Menampilkan hasil dengan format Rupiah yang rapi
+                st.success(f"### Prediksi harga untuk hari bursa berikutnya: Rp {hasil:,.2f}")
+                st.info(f"💡 **Informasi:** Prediksi ini menggunakan data terakhir pada tanggal {df.index[-1].date()}.")
             else:
-                st.error("Data tidak cukup untuk jumlah lookback tersebut.")
+                st.error(f"Data tidak cukup! Kamu butuh minimal {lookback_val} hari data, sedangkan data tersedia hanya {len(latest_prices)} hari.")
 else:
-    st.warning("Gagal mengambil data dari Yahoo Finance.")
-
+    st.warning("Gagal mengambil data dari Yahoo Finance. Periksa koneksi internet atau simbol saham.")
