@@ -30,8 +30,6 @@ with col_tgl:
     # Menggunakan HTML sederhana untuk sejajar kanan dan font-size besar
     st.markdown(f"<div style='text-align: right;'><h2><b>Tanggal:</b> <span style='font-size: 38px;'><code>{now_jkt.strftime('%d-%m-%Y')}</code></span></h2></div>", unsafe_allow_html=True)
 
-st.markdown("---")
-
 # --- PERBAIKAN: CSS Khusus Agar Tabel Tidak Gelap ---
 st.markdown("""
     <style>
@@ -180,4 +178,5 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
