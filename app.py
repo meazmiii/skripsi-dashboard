@@ -17,7 +17,17 @@ tz_jkt = pytz.timezone('Asia/Jakarta')
 now_jkt = datetime.now(tz_jkt)
 
 st.title("🚀 Dashboard Analisis Saham BBCA (LSTM & TCN)")
-st.write(f"**Waktu Sistem (Real-time):** `{now_jkt.strftime('%H:%M:%S')}` WIB | **Tanggal:** `{now_jkt.strftime('%d-%m-%Y')}`")
+
+# --- PERBAIKAN: Waktu & Tanggal Diperbesar ---
+st.markdown(
+    f"""
+    <div style="background-color:#1E1E1E; padding:20px; border-radius:10px; border-left: 10px solid #00FF00; margin-bottom:20px;">
+        <h1 style="color:white; margin:0; font-size: 50px; font-family: monospace;">{now_jkt.strftime('%H:%M:%S')} <span style="font-size: 20px;">WIB</span></h1>
+        <h3 style="color:#AAAAAA; margin:0;">{now_jkt.strftime('%A, %d %B %Y')}</h3>
+    </div>
+    """, 
+    unsafe_allow_html=True
+)
 
 # 2. Fungsi Load Model & Data
 @st.cache_resource
@@ -40,7 +50,7 @@ try:
 except Exception as e:
     st.error(f"Terjadi kesalahan: {e}")
 
-# 3. Fungsi Prediksi Universal
+# 3. Fungsi Prediksi
 def predict_stock(model, data, lookback):
     scaler = RobustScaler()
     scaled_data = scaler.fit_transform(data.reshape(-1, 1))
@@ -49,7 +59,7 @@ def predict_stock(model, data, lookback):
     prediction_scaled = model.predict(last_sequence)
     return scaler.inverse_transform(prediction_scaled)[0][0]
 
-# --- LOGIKA CALLBACK UNTUK TOMBOL ---
+# --- CALLBACK UNTUK TOMBOL ---
 def run_pred_h():
     st.session_state.res_h = predict_stock(model_h, df_all['Close'].dropna().values, 60)
 
@@ -70,7 +80,7 @@ if not df_all.empty:
         pred_today = predict_stock(model_h, close_series.iloc[:-1].values, 60)
 
         c1, c2 = st.columns(2)
-        with c1: st.metric("Harga Aktual Terakhir", f"Rp {last_p:,.2f}"); st.caption("Status: Real-time WIB")
+        with c1: st.metric("Harga Aktual Terakhir", f"Rp {last_p:,.2f}")
         with c2: st.metric("Prediksi LSTM", f"Rp {pred_today:,.2f}")
         
         st.write("### 🕒 Historis Akurasi (5 Hari Bursa Terakhir)")
@@ -87,7 +97,6 @@ if not df_all.empty:
             })
         st.table(pd.DataFrame(history_h))
 
-        # Tombol dengan Callback
         st.button('Jalankan Prediksi LSTM (Besok)', on_click=run_pred_h)
         if 'res_h' in st.session_state:
             st.success(f"### Estimasi Harga LSTM Besok: Rp {st.session_state.res_h:,.2f}")
@@ -130,3 +139,16 @@ if not df_all.empty:
 
         with st.expander("Lihat Data Historis Bulanan Lengkap"):
             st.dataframe(df_m.sort_index(ascending=False), use_container_width=True)
+
+# --- ADDED: Footer Copyright & Identitas ---
+st.markdown("---")
+st.markdown(
+    """
+    <div style="text-align: center; color: #777777; padding: 10px;">
+        <p style="margin:0;">© 2026 Skripsi Informatika - Universitas AMIKOM Yogyakarta</p>
+        <p style="margin:0; font-weight: bold; color: #AAAAAA;">AZMI AZIZ | 22.11.4903</p>
+        <p style="margin:0;">Instagram: <a href="https://instagram.com/_azmiazzz" style="color: #00AAFF; text-decoration: none;">@_azmiazzz</a></p>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
