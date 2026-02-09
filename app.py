@@ -11,27 +11,29 @@ from streamlit_autorefresh import st_autorefresh
 # 1. Konfigurasi Halaman
 st.set_page_config(page_title="Dashboard Skripsi BBCA", layout="wide")
 
-# Jam Real-time (Refresh setiap 1 detik)
+# --- BAGIAN JAM (Hanya bagian ini yang di-refresh) ---
+# Menggunakan st.empty() agar refresh jam tidak mengganggu tabel di bawahnya
+header_container = st.container()
+with header_container:
+    st.title("🚀 Dashboard Analisis Saham BBCA (LSTM & TCN)")
+    clock_placeholder = st.empty()
+
+# Auto-refresh diletakkan di bawah judul untuk memicu pembaruan jam
 st_autorefresh(interval=1000, key="clock_refresh")
+
 tz_jkt = pytz.timezone('Asia/Jakarta')
 now_jkt = datetime.now(tz_jkt)
 
-st.title("🚀 Dashboard Analisis Saham BBCA (LSTM & TCN)")
+# Update teks jam di dalam placeholder
+with clock_placeholder.container():
+    st.write(f"## **Waktu Sistem (Real-time):** `{now_jkt.strftime('%H:%M:%S')}` **WIB**")
+    st.write(f"### **Tanggal:** `{now_jkt.strftime('%d-%m-%Y')}`")
+    st.markdown("---")
 
-# --- PERBAIKAN: Waktu & Tanggal Diperbesar ---
-st.markdown(
-    f"""
-    <div style="background-color:#1E1E1E; padding:20px; border-radius:10px; border-left: 10px solid #00FF00; margin-bottom:20px;">
-        <h1 style="color:white; margin:0; font-size: 50px; font-family: monospace;">{now_jkt.strftime('%H:%M:%S')} <span style="font-size: 20px;">WIB</span></h1>
-        <h3 style="color:#AAAAAA; margin:0;">{now_jkt.strftime('%A, %d %B %Y')}</h3>
-    </div>
-    """, 
-    unsafe_allow_html=True
-)
-
-# 2. Fungsi Load Model & Data
+# 2. Fungsi Load Model & Data (Gunakan Cache agar tidak berkedip)
 @st.cache_resource
 def load_models():
+    # Model arsitektur LSTM dan TCN untuk prediksi saham BBCA
     m_harian = load_model('Tuned_LSTM_Harian_U64_LR0.001_KN.h5', compile=False)
     m_mingguan = load_model('Tuned_TCN_Mingguan_U64_LR0.001_K3.h5', compile=False)
     m_bulanan = load_model('Tuned_TCN_Bulanan_U128_LR0.001_K3.h5', compile=False)
@@ -69,6 +71,7 @@ def run_pred_w(data_w):
 def run_pred_m(data_m):
     st.session_state.res_m = predict_stock(model_b, data_m, 12)
 
+# 4. Tampilan Utama
 if not df_all.empty:
     close_series = df_all['Close'].dropna()
     tab1, tab2, tab3 = st.tabs(["📅 Harian (LSTM)", "🗓️ Mingguan (TCN)", "📊 Bulanan (TCN)"])
@@ -97,11 +100,11 @@ if not df_all.empty:
             })
         st.table(pd.DataFrame(history_h))
 
-        st.button('Jalankan Prediksi LSTM (Besok)', on_click=run_pred_h)
+        st.button('Jalankan Prediksi LSTM (Besok)', on_click=run_pred_h, key='btn_h')
         if 'res_h' in st.session_state:
             st.success(f"### Estimasi Harga LSTM Besok: Rp {st.session_state.res_h:,.2f}")
 
-        with st.expander("Lihat Data Historis Harian Lengkap"):
+        with st.expander("Lihat Data Historis Harian Lengkap (OHLCV)"):
             st.dataframe(df_all.sort_index(ascending=False), use_container_width=True)
 
     # --- TAB 2: MINGGUAN ---
@@ -115,11 +118,11 @@ if not df_all.empty:
         with col1: st.metric("Harga Aktual Minggu Ini", f"Rp {last_p_w:,.2f}")
         with col2: st.metric("Prediksi TCN", f"Rp {pred_w:,.2f}")
 
-        st.button('Jalankan Prediksi TCN (Minggu Depan)', on_click=run_pred_w, args=(df_w['Close'].values,))
+        st.button('Jalankan Prediksi TCN (Minggu Depan)', on_click=run_pred_w, args=(df_w['Close'].values,), key='btn_w')
         if 'res_w' in st.session_state:
             st.success(f"### Estimasi Harga TCN Minggu Depan: Rp {st.session_state.res_w:,.2f}")
 
-        with st.expander("Lihat Data Historis Mingguan Lengkap"):
+        with st.expander("Lihat Data Historis Mingguan Lengkap (OHLCV)"):
             st.dataframe(df_w.sort_index(ascending=False), use_container_width=True)
 
     # --- TAB 3: BULANAN ---
@@ -133,14 +136,14 @@ if not df_all.empty:
         with k1: st.metric("Harga Aktual Bulan Ini", f"Rp {last_p_m:,.2f}")
         with k2: st.metric("Prediksi TCN", f"Rp {pred_m:,.2f}")
 
-        st.button('Jalankan Prediksi TCN (Bulan Depan)', on_click=run_pred_m, args=(df_m['Close'].values,))
+        st.button('Jalankan Prediksi TCN (Bulan Depan)', on_click=run_pred_m, args=(df_m['Close'].values,), key='btn_m')
         if 'res_m' in st.session_state:
             st.success(f"### Estimasi Harga TCN Bulan Depan: Rp {st.session_state.res_m:,.2f}")
 
-        with st.expander("Lihat Data Historis Bulanan Lengkap"):
+        with st.expander("Lihat Data Historis Bulanan Lengkap (OHLCV)"):
             st.dataframe(df_m.sort_index(ascending=False), use_container_width=True)
 
-# --- ADDED: Footer Copyright & Identitas ---
+# --- Footer Copyright ---
 st.markdown("---")
 st.markdown(
     """
