@@ -40,7 +40,7 @@ try:
 except Exception as e:
     st.error(f"Terjadi kesalahan: {e}")
 
-# 3. Fungsi Prediksi
+# 3. Fungsi Prediksi Universal
 def predict_stock(model, data, lookback):
     scaler = RobustScaler()
     scaled_data = scaler.fit_transform(data.reshape(-1, 1))
@@ -48,6 +48,16 @@ def predict_stock(model, data, lookback):
     last_sequence = scaled_data[-lookback:].reshape(1, lookback, 1)
     prediction_scaled = model.predict(last_sequence)
     return scaler.inverse_transform(prediction_scaled)[0][0]
+
+# --- LOGIKA CALLBACK UNTUK TOMBOL ---
+def run_pred_h():
+    st.session_state.res_h = predict_stock(model_h, df_all['Close'].dropna().values, 60)
+
+def run_pred_w(data_w):
+    st.session_state.res_w = predict_stock(model_m, data_w, 24)
+
+def run_pred_m(data_m):
+    st.session_state.res_m = predict_stock(model_b, data_m, 12)
 
 if not df_all.empty:
     close_series = df_all['Close'].dropna()
@@ -57,7 +67,7 @@ if not df_all.empty:
     with tab1:
         st.subheader("Analisis Perbandingan & Prediksi Harian (LSTM)")
         last_p = float(close_series.iloc[-1])
-        pred_today = predict_stock(model_h, close_series.iloc[:-1].values, lookback=60)
+        pred_today = predict_stock(model_h, close_series.iloc[:-1].values, 60)
 
         c1, c2 = st.columns(2)
         with c1: st.metric("Harga Aktual Terakhir", f"Rp {last_p:,.2f}"); st.caption("Status: Real-time WIB")
@@ -68,7 +78,7 @@ if not df_all.empty:
         for i in range(1, 6):
             t_idx = -i
             act_val = close_series.iloc[t_idx]
-            p_val = predict_stock(model_h, close_series.iloc[:t_idx].values, lookback=60)
+            p_val = predict_stock(model_h, close_series.iloc[:t_idx].values, 60)
             history_h.append({
                 "Tanggal": close_series.index[t_idx].date(),
                 "Harga Aktual": f"Rp {act_val:,.2f}",
@@ -77,12 +87,10 @@ if not df_all.empty:
             })
         st.table(pd.DataFrame(history_h))
 
-        # Perbaikan Tombol menggunakan Session State
-        if st.button('Jalankan Prediksi LSTM (Besok)'):
-            st.session_state.pred_h = predict_stock(model_h, close_series.values, lookback=60)
-        
-        if 'pred_h' in st.session_state:
-            st.success(f"### Estimasi Harga LSTM Besok: Rp {st.session_state.pred_h:,.2f}")
+        # Tombol dengan Callback
+        st.button('Jalankan Prediksi LSTM (Besok)', on_click=run_pred_h)
+        if 'res_h' in st.session_state:
+            st.success(f"### Estimasi Harga LSTM Besok: Rp {st.session_state.res_h:,.2f}")
 
         with st.expander("Lihat Data Historis Harian Lengkap"):
             st.dataframe(df_all.sort_index(ascending=False), use_container_width=True)
@@ -90,39 +98,35 @@ if not df_all.empty:
     # --- TAB 2: MINGGUAN ---
     with tab2:
         st.subheader("Analisis Perbandingan & Prediksi Mingguan (TCN)")
-        df_w_full = df_all.resample('W-MON').agg({'Open':'first','High':'max','Low':'min','Close':'last','Volume':'sum'}).dropna()
-        last_p_w = float(df_w_full['Close'].iloc[-1])
-        pred_w = predict_stock(model_m, df_w_full['Close'].values[:-1], lookback=24)
+        df_w = df_all.resample('W-MON').agg({'Open':'first','High':'max','Low':'min','Close':'last','Volume':'sum'}).dropna()
+        last_p_w = float(df_w['Close'].iloc[-1])
+        pred_w = predict_stock(model_m, df_w['Close'].values[:-1], 24)
 
         col1, col2 = st.columns(2)
         with col1: st.metric("Harga Aktual Minggu Ini", f"Rp {last_p_w:,.2f}")
         with col2: st.metric("Prediksi TCN", f"Rp {pred_w:,.2f}")
 
-        if st.button('Jalankan Prediksi TCN (Minggu Depan)'):
-            st.session_state.pred_w = predict_stock(model_m, df_w_full['Close'].values, lookback=24)
-        
-        if 'pred_w' in st.session_state:
-            st.success(f"### Estimasi Harga TCN Minggu Depan: Rp {st.session_state.pred_w:,.2f}")
+        st.button('Jalankan Prediksi TCN (Minggu Depan)', on_click=run_pred_w, args=(df_w['Close'].values,))
+        if 'res_w' in st.session_state:
+            st.success(f"### Estimasi Harga TCN Minggu Depan: Rp {st.session_state.res_w:,.2f}")
 
         with st.expander("Lihat Data Historis Mingguan Lengkap"):
-            st.dataframe(df_w_full.sort_index(ascending=False), use_container_width=True)
+            st.dataframe(df_w.sort_index(ascending=False), use_container_width=True)
 
     # --- TAB 3: BULANAN ---
     with tab3:
         st.subheader("Analisis Perbandingan & Prediksi Bulanan (TCN)")
-        df_m_full = df_all.resample('ME').agg({'Open':'first','High':'max','Low':'min','Close':'last','Volume':'sum'}).dropna()
-        last_p_m = float(df_m_full['Close'].iloc[-1])
-        pred_m = predict_stock(model_b, df_m_full['Close'].values[:-1], lookback=12)
+        df_m = df_all.resample('ME').agg({'Open':'first','High':'max','Low':'min','Close':'last','Volume':'sum'}).dropna()
+        last_p_m = float(df_m['Close'].iloc[-1])
+        pred_m = predict_stock(model_b, df_m['Close'].values[:-1], 12)
 
         k1, k2 = st.columns(2)
         with k1: st.metric("Harga Aktual Bulan Ini", f"Rp {last_p_m:,.2f}")
         with k2: st.metric("Prediksi TCN", f"Rp {pred_m:,.2f}")
 
-        if st.button('Jalankan Prediksi TCN (Bulan Depan)'):
-            st.session_state.pred_m = predict_stock(model_b, df_m_full['Close'].values, lookback=12)
-        
-        if 'pred_m' in st.session_state:
-            st.success(f"### Estimasi Harga TCN Bulan Depan: Rp {st.session_state.pred_m:,.2f}")
+        st.button('Jalankan Prediksi TCN (Bulan Depan)', on_click=run_pred_m, args=(df_m['Close'].values,))
+        if 'res_m' in st.session_state:
+            st.success(f"### Estimasi Harga TCN Bulan Depan: Rp {st.session_state.res_m:,.2f}")
 
         with st.expander("Lihat Data Historis Bulanan Lengkap"):
-            st.dataframe(df_m_full.sort_index(ascending=False), use_container_width=True)
+            st.dataframe(df_m.sort_index(ascending=False), use_container_width=True)
