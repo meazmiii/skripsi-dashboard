@@ -11,31 +11,23 @@ from streamlit_autorefresh import st_autorefresh
 # 1. Konfigurasi Halaman
 st.set_page_config(page_title="Dashboard Skripsi BBCA", layout="wide")
 
-# Jam Real-time (Hanya bagian ini yang di-refresh secara cepat)
+# Jam Real-time (Refresh setiap 1 detik)
 st_autorefresh(interval=1000, key="clock_refresh")
 tz_jkt = pytz.timezone('Asia/Jakarta')
 now_jkt = datetime.now(tz_jkt)
 
-# Header & Jam Sejajar
 st.title("🚀 Dashboard Analisis Saham BBCA (LSTM & TCN)")
 
-# --- PERBAIKAN: Waktu dan Tanggal Sejajar & Ukuran Besar ---
-st.markdown(
-    f"""
-    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0px;">
-        <div style="font-size: 35px; font-weight: bold; color: white;">
-            🕒 {now_jkt.strftime('%H:%M:%S')} <span style="font-size: 20px;">WIB</span>
-        </div>
-        <div style="font-size: 35px; font-weight: bold; color: white;">
-            📅 {now_jkt.strftime('%d-%m-%Y')}
-        </div>
-    </div>
-    <hr style="margin-top: 0px; margin-bottom: 20px; border: 1px solid #333;">
-    """, 
-    unsafe_allow_html=True
-)
+# --- Format Jam Bersih (Backticks) SEJAJAR ---
+col_jam, col_tgl = st.columns([1, 1])
+with col_jam:
+    st.write(f"### **Waktu Sistem (Real-time):** `{now_jkt.strftime('%H:%M:%S')}` **WIB**")
+with col_tgl:
+    st.markdown(f"<div style='text-align: right;'><h3><b>Tanggal:</b> <code>{now_jkt.strftime('%d-%m-%Y')}</code></h3></div>", unsafe_allow_html=True)
 
-# 2. Fungsi Load Model & Data (Gunakan Cache agar stabil)
+st.markdown("---")
+
+# 2. Fungsi Load Model & Data (Cached)
 @st.cache_resource
 def load_models():
     m_harian = load_model('Tuned_LSTM_Harian_U64_LR0.001_KN.h5', compile=False)
@@ -65,7 +57,7 @@ def predict_stock(model, data, lookback):
     prediction_scaled = model.predict(last_sequence)
     return scaler.inverse_transform(prediction_scaled)[0][0]
 
-# --- CALLBACK UNTUK TOMBOL ---
+# --- CALLBACK UNTUK TOMBOL PREDIKSI ---
 def run_pred_h():
     st.session_state.res_h = predict_stock(model_h, df_all['Close'].dropna().values, 60)
 
@@ -75,12 +67,10 @@ def run_pred_w(data_w):
 def run_pred_m(data_m):
     st.session_state.res_m = predict_stock(model_b, data_m, 12)
 
-# 4. Tampilan Utama
 if not df_all.empty:
     close_series = df_all['Close'].dropna()
     tab1, tab2, tab3 = st.tabs(["📅 Harian (LSTM)", "🗓️ Mingguan (TCN)", "📊 Bulanan (TCN)"])
 
-    # --- TAB 1: HARIAN ---
     with tab1:
         st.subheader("Analisis Perbandingan & Prediksi Harian (LSTM)")
         last_p = float(close_series.iloc[-1])
@@ -111,7 +101,6 @@ if not df_all.empty:
         with st.expander("Lihat Data Historis Harian Lengkap (OHLCV)"):
             st.dataframe(df_all.sort_index(ascending=False), use_container_width=True)
 
-    # --- TAB 2: MINGGUAN ---
     with tab2:
         st.subheader("Analisis Perbandingan & Prediksi Mingguan (TCN)")
         df_w = df_all.resample('W-MON').agg({'Open':'first','High':'max','Low':'min','Close':'last','Volume':'sum'}).dropna()
@@ -129,7 +118,6 @@ if not df_all.empty:
         with st.expander("Lihat Data Historis Mingguan Lengkap (OHLCV)"):
             st.dataframe(df_w.sort_index(ascending=False), use_container_width=True)
 
-    # --- TAB 3: BULANAN ---
     with tab3:
         st.subheader("Analisis Perbandingan & Prediksi Bulanan (TCN)")
         df_m = df_all.resample('ME').agg({'Open':'first','High':'max','Low':'min','Close':'last','Volume':'sum'}).dropna()
@@ -147,15 +135,15 @@ if not df_all.empty:
         with st.expander("Lihat Data Historis Bulanan Lengkap (OHLCV)"):
             st.dataframe(df_m.sort_index(ascending=False), use_container_width=True)
 
-# --- PERBAIKAN: Copyright Lebih Terang & Jelas ---
+# --- Copyright Cerah dengan Link Instagram Aktif ---
 st.markdown("<br><br>", unsafe_allow_html=True)
 st.markdown(
     """
-    <div style="text-align: center; background-color: #262730; padding: 25px; border-radius: 15px; border-top: 2px solid #333;">
-        <p style="margin:0; font-size: 14px; color: #CCCCCC;">© 2026 Skripsi Informatika - Universitas AMIKOM Yogyakarta</p>
-        <p style="margin:5px 0; font-size: 20px; font-weight: bold; color: #FFFFFF; letter-spacing: 1px;">AZMI AZIZ | 22.11.4903</p>
-        <p style="margin:0; font-size: 16px; color: #00AAFF; font-weight: 500;">
-            Instagram: <a href="https://instagram.com/_azmiazzz" target="_blank" style="color: #00AAFF; text-decoration: none;">@_azmiazzz</a>
+    <div style="text-align: center; background-color: #262730; padding: 20px; border-radius: 10px; border: 1px solid #444;">
+        <p style="margin:0; font-size: 14px; color: #DDDDDD;">© 2026 Skripsi Informatika - Universitas AMIKOM Yogyakarta</p>
+        <p style="margin:5px 0; font-size: 18px; font-weight: bold; color: #FFFFFF;">AZMI AZIZ | 22.11.4903</p>
+        <p style="margin:0; font-size: 15px;">
+            <a href="https://www.instagram.com/_azmiazzz/?hl=id" target="_blank" style="color: #00AAFF; text-decoration: none; font-weight: bold;">Instagram: @_azmiazzz</a>
         </p>
     </div>
     """,
