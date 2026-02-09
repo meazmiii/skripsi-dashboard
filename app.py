@@ -24,7 +24,7 @@ col_jam, col_tgl = st.columns([1, 1])
 
 with col_jam:
     # Menggunakan HTML sederhana di dalam markdown agar font-size bisa diatur besar
-    st.markdown(f"## **Waktu Sistem (Real-time):** <span style='font-size: 38px;'>`{now_jkt.strftime('%H:%M:%S')}`</span> **WIB**", unsafe_allow_html=True)
+    st.markdown(f"## **Waktu Real-time:** <span style='font-size: 38px;'>`{now_jkt.strftime('%H:%M:%S')}`</span> **WIB**", unsafe_allow_html=True)
 
 with col_tgl:
     # Menggunakan HTML sederhana untuk sejajar kanan dan font-size besar
@@ -180,3 +180,4 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
