@@ -163,21 +163,24 @@ if not df_all.empty:
 
         with st.expander("Lihat Data Historis Bulanan Lengkap"):
             st.dataframe(df_m.sort_index(ascending=False), use_container_width=True)
-# 1. Definisikan dulu variabelnya di luar try
-ticker = 'BBCA.JK' 
+# --- 1. Definisi Variabel (DI BAGIAN ATAS) ---
+ticker = 'BBCA.JK'
 
+# --- 2. Konten Utama (Analisis & Grafik) ---
 try:
-    # 2. Pastikan baris ini MENJOROK ke dalam (indentasi)
+    # Download data
     df_ext = yf.download(ticker, start='2025-12-01', end='2026-02-02', progress=False)
     
-    if df_ext.empty:
-        st.error("Data tidak ditemukan atau kena Rate Limit. Coba lagi nanti.")
+    if not df_ext.empty:
+        # Tampilkan grafik atau hasil prediksi di sini
+        st.subheader(f"Grafik Prediksi Saham {ticker}")
+        # ... kode plotting kamu ...
+        st.line_chart(df_ext['Close']) 
     else:
-        st.success("Data berhasil dimuat!")
-        # Lanjutkan proses plot atau prediksi di sini
-        
+        st.warning("Data kosong. Silakan cek koneksi atau limit API.")
+
 except Exception as e:
-    st.error(f"Terjadi error: {e}")
+    st.error(f"Terjadi kesalahan saat memuat data: {e}")
 
 # --- Copyright Cerah & Terang ---
 st.markdown("<br><br>", unsafe_allow_html=True)
@@ -193,6 +196,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
