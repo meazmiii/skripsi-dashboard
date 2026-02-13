@@ -163,11 +163,19 @@ if not df_all.empty:
 
         with st.expander("Lihat Data Historis Bulanan Lengkap"):
             st.dataframe(df_m.sort_index(ascending=False), use_container_width=True)
+# 1. Definisikan dulu variabelnya di luar try
+ticker = 'BBCA.JK' 
+
 try:
+    # 2. Pastikan baris ini MENJOROK ke dalam (indentasi)
     df_ext = yf.download(ticker, start='2025-12-01', end='2026-02-02', progress=False)
     
     if df_ext.empty:
         st.error("Data tidak ditemukan atau kena Rate Limit. Coba lagi nanti.")
+    else:
+        st.success("Data berhasil dimuat!")
+        # Lanjutkan proses plot atau prediksi di sini
+        
 except Exception as e:
     st.error(f"Terjadi error: {e}")
 
@@ -185,6 +193,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
