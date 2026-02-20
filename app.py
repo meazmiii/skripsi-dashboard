@@ -214,19 +214,36 @@ if not df_all.empty:
             st.dataframe(df_m_full.sort_index(ascending=False), use_container_width=True)
 
 # --- Copyright ---
+st.markdown("<br><br>", unsafe_allow_html=True)
 st.markdown(
     """
-    <div class="footer-box">
-        <p style="margin:0; font-size: 14px; color: #DDDDDD;">© 2026 Skripsi Informatika - Universitas AMIKOM Yogyakarta</p>
-        <p style="margin:8px 0; font-size: 20px; font-weight: bold; color: #FFFFFF; letter-spacing: 1px;">AZMI AZIZ | 22.11.4903</p>
-        <p style="margin:0; font-size: 16px;">
-            <a href="https://www.instagram.com/_azmiazzz/?hl=id" target="_blank" style="color: #00AAFF; text-decoration: none; font-weight: bold;">
+    <div style="
+        display: flex; 
+        flex-direction: column; 
+        align-items: center; 
+        justify-content: center; 
+        text-align: center; 
+        background-color: #262730; 
+        padding: 25px; 
+        border-radius: 12px; 
+        border: 1px solid #444; 
+        width: 100%;
+    ">
+        <p style="margin:0; font-size: 14px; color: #DDDDDD;">
+            © 2026 Skripsi Informatika - Universitas AMIKOM Yogyakarta
+        </p>
+        <p style="margin:8px 0; font-size: 20px; font-weight: bold; color: #FFFFFF; letter-spacing: 1px;">
+            AZMI AZIZ | 22.11.4903
+        </p>
+        <div style="display: flex; align-items: center; justify-content: center;">
+            <a href="https://www.instagram.com/_azmiazzz/?hl=id" target="_blank" style="color: #00AAFF; text-decoration: none; font-weight: bold; font-size: 16px;">
                 📸 Instagram: @_azmiazzz
             </a>
-        </p>
+        </div>
     </div>
     """,
     unsafe_allow_html=True
 )
+
 
 
