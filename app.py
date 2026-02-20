@@ -215,7 +215,14 @@ if not df_all.empty:
 
 # --- Copyright ---
 st.markdown("<br><hr>", unsafe_allow_html=True)
-st.markdown(f"<div style='text-align: center;'><b>AZMI AZIZ | 22.11.4903</b><br>© 2026 Universitas AMIKOM Yogyakarta</div>", unsafe_allow_html=True)
-st.markdown(f"<div style='text-align: center;'><a href="https://www.instagram.com/_azmiazzz/?hl=id" target="_blank" style="color: #00AAFF; text-decoration: none; font-weight: bold; font-size: 16px;">
-                📸 Instagram: @_azmiazzz
-            </a></div>", unsafe_allow_html=True)
+st.markdown(f"""
+    <div style='text-align: center;'>
+        <b>AZMI AZIZ | 22.11.4903</b><br>
+        © 2026 Universitas AMIKOM Yogyakarta
+    </div>
+    <div style='text-align: center; margin-top: 10px;'>
+        <a href='https://www.instagram.com/_azmiazzz/?hl=id' target='_blank' style='color: #00AAFF; text-decoration: none; font-weight: bold; font-size: 16px;'>
+            📸 Instagram: @_azmiazzz
+        </a>
+    </div>
+""", unsafe_allow_html=True)
