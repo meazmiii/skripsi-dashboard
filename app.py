@@ -6,208 +6,176 @@ from datetime import datetime
 import pytz
 from tensorflow.keras.models import load_model
 from sklearn.preprocessing import RobustScaler
-from streamlit_autorefresh import st_autorefresh
 
 # 1. Konfigurasi Halaman
-st.set_page_config(page_title="Dashboard Skripsi BBCA", layout="wide")
+st.set_page_config(page_title="Dashboard Skripsi BBCA - Azmi Aziz", layout="wide")
 
-# Jam Real-time (Refresh setiap 1 detik)
-st_autorefresh(interval=1000, key="clock_refresh")
+# Penentuan Waktu WIB
 tz_jkt = pytz.timezone('Asia/Jakarta')
 now_jkt = datetime.now(tz_jkt)
 
-st.title("🚀 Dashboard Analisis Saham BBCA (LSTM & TCN)")
-
-# --- PERBAIKAN: Kalimat Tetap Sama, Ukuran Diperbesar, Posisi Sejajar ---
-st.write("") # Memberi ruang sedikit
-col_jam, col_tgl = st.columns([1, 1])
-
-with col_jam:
-    # Menggunakan HTML sederhana di dalam markdown agar font-size bisa diatur besar
-    st.markdown(f"## **Waktu Real-time:** <span style='font-size: 38px;'>`{now_jkt.strftime('%H:%M:%S')}`</span> **WIB**", unsafe_allow_html=True)
-
-with col_tgl:
-    # Menggunakan HTML sederhana untuk sejajar kanan dan font-size besar
-    st.markdown(f"<div style='text-align: right;'><h2><b>Tanggal:</b> <span style='font-size: 38px;'><code>{now_jkt.strftime('%d-%m-%Y')}</code></span></h2></div>", unsafe_allow_html=True)
-
-# --- PERBAIKAN: CSS Khusus Agar Tabel Tidak Gelap ---
+# --- CSS CUSTOM UNTUK TABEL DAN TAMPILAN ---
 st.markdown("""
     <style>
-    /* Memaksa semua teks di dalam tabel/dataframe agar berwarna putih terang */
-    .stDataFrame, [data-testid="stTable"] {
-        color: #FFFFFF !important;
-    }
-    th {
-        color: #FFFFFF !important;
-        background-color: #31333F !important;
-    }
-    td {
-        color: #FFFFFF !important;
-    }
-    /* Memperbaiki tampilan expander agar kontras */
-    .streamlit-expanderHeader {
-        color: white !important;
-        background-color: #262730 !important;
-    }
+    .stDataFrame, [data-testid="stTable"] { color: #FFFFFF !important; }
+    th { color: #FFFFFF !important; background-color: #31333F !important; }
+    td { color: #FFFFFF !important; }
+    .streamlit-expanderHeader { color: white !important; background-color: #262730 !important; }
+    .big-font { font-size: 38px !important; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
 # 2. Fungsi Load Model & Data
 @st.cache_resource
-def load_models():
-    m_harian = load_model('Tuned_LSTM_Harian_U64_LR0.001_KN.h5', compile=False)
-    m_mingguan = load_model('Tuned_TCN_Mingguan_U64_LR0.001_K3.h5', compile=False)
-    m_bulanan = load_model('Tuned_TCN_Bulanan_U128_LR0.001_K3.h5', compile=False)
-    return m_harian, m_mingguan, m_bulanan
+def get_model(path):
+    # Fungsi ini akan memuat model secara dinamis saat dipilih
+    return load_model(path, compile=False)
 
-# --- DI BAGIAN ATAS (Setelah Import) ---
-ticker = "BBCA.JK"
-
-@st.cache_data(ttl=600) # Data hanya akan di-download ulang setiap 10mnt
-def get_data():
+@st.cache_data(ttl=None) # Manual Refresh Only
+def get_data_manual():
+    ticker = "BBCA.JK"
     try:
-        # Mencoba download data terbaru
         df = yf.download(ticker, period='5y', progress=False)
-        
-        if df.empty:
-            raise ValueError("Yahoo Finance mengembalikan data kosong (Rate Limit).")
-            
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.get_level_values(0)
-            
-        # Opsional: Simpan ke lokal setiap kali berhasil download sebagai cadangan
+        if df.empty: raise ValueError("API Limit")
+        if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
         df.to_csv("bbca_fallback.csv")
         return df
-        
-    except Exception as e:
-        # JIKA GAGAL: Baca dari file CSV lokal agar dashboard tidak crash
-        st.warning(f"Koneksi API terlimit, menggunakan data cadangan lokal. Error: {e}")
-        try:
-            df_fallback = pd.read_csv("bbca_fallback.csv", index_col=0, parse_dates=True)
-            return df_fallback
-        except:
-            st.error("Data cadangan lokal tidak ditemukan!")
-            return pd.DataFrame()
+    except:
+        return pd.read_csv("bbca_fallback.csv", index_col=0, parse_dates=True)
 
-# --- DI BAGIAN UTAMA ---
-try:
-    model_h, model_m, model_b = load_models()
-    df_all = get_data() # Memanggil fungsi yang sudah diproteksi
-except Exception as e:
-    st.error(f"Gagal memuat model/data: {e}")
-
-# 3. Fungsi Prediksi
 def predict_stock(model, data, lookback):
     scaler = RobustScaler()
     scaled_data = scaler.fit_transform(data.reshape(-1, 1))
-    if len(scaled_data) < lookback: return None
+    if len(scaled_data) < lookback: return 0.0
     last_sequence = scaled_data[-lookback:].reshape(1, lookback, 1)
-    prediction_scaled = model.predict(last_sequence)
+    prediction_scaled = model.predict(last_sequence, verbose=0)
     return scaler.inverse_transform(prediction_scaled)[0][0]
 
-# --- CALLBACK UNTUK TOMBOL ---
-def run_pred_h():
-    st.session_state.res_h = predict_stock(model_h, df_all['Close'].dropna().values, 60)
+# --- HEADER & REFRESH CONTROL ---
+st.title("🚀 Dashboard Analisis Saham BBCA (LSTM & TCN)")
 
-def run_pred_w(data_w):
-    st.session_state.res_w = predict_stock(model_m, data_w, 24)
+col_header_1, col_header_2 = st.columns([2, 1])
+with col_header_1:
+    st.markdown(f"### Waktu Real-time: <span class='big-font'>`{now_jkt.strftime('%H:%M:%S')}`</span> WIB", unsafe_allow_html=True)
+    if st.button("🔄 Refresh Data Aktual"):
+        st.cache_data.clear()
+        st.rerun()
 
-def run_pred_m(data_m):
-    st.session_state.res_m = predict_stock(model_b, data_m, 12)
+with col_header_2:
+    st.markdown(f"<div style='text-align: right;'>### Tanggal: <br><span class='big-font'>`{now_jkt.strftime('%d-%m-%Y')}`</span></div>", unsafe_allow_html=True)
 
-# 4. Tampilan Utama
+df_all = get_data_manual()
+
+# 3. Struktur Dashboard Utama
 if not df_all.empty:
-    close_series = df_all['Close'].dropna()
-    tab1, tab2, tab3 = st.tabs(["📅 Harian (LSTM)", "🗓️ Mingguan (TCN)", "📊 Bulanan (TCN)"])
+    tab1, tab2, tab3 = st.tabs(["📅 Harian", "🗓️ Mingguan", "📊 Bulanan"])
 
-    # --- TAB 1: HARIAN ---
+    # --- TAB 1: HARIAN (Lookback: 60) ---
     with tab1:
-        st.subheader("Analisis Perbandingan & Prediksi Harian (LSTM)")
-        last_p = float(close_series.iloc[-1])
-        pred_today = predict_stock(model_h, close_series.iloc[:-1].values, 60)
-
-        c1, c2 = st.columns(2)
-        with c1: st.metric("Harga Aktual Terakhir", f"Rp {last_p:,.2f}")
-        with c2: st.metric("Prediksi LSTM", f"Rp {pred_today:,.2f}")
+        st.subheader("Analisis Multi-Model Harian")
+        model_h = st.radio("Pilih Model Harian:", ["LSTM Baseline", "TCN Baseline", "LSTM Tuned", "TCN Tuned"], index=None, horizontal=True, key="h_radio")
         
-        st.write("### 🕒 Historis Akurasi (5 Hari Bursa Terakhir)")
-        history_h = []
-        for i in range(1, 6):
-            t_idx = -i
-            act_val = close_series.iloc[t_idx]
-            p_val = predict_stock(model_h, close_series.iloc[:t_idx].values, 60)
-            history_h.append({
-                "Tanggal": close_series.index[t_idx].date(),
-                "Harga Aktual": f"Rp {act_val:,.2f}",
-                "Prediksi LSTM": f"Rp {p_val:,.2f}",
-                "Selisih (Rp)": f"{abs(act_val - p_val):,.2f}"
-            })
-        st.table(pd.DataFrame(history_h))
+        if model_h:
+            paths = {
+                "LSTM Baseline": "models/baseline/Baseline_LSTM_Harian.h5",
+                "TCN Baseline": "models/baseline/Baseline_TCN_Harian.h5",
+                "LSTM Tuned": "Tuned_LSTM_Harian_U64_LR0.001_KN.h5", # Sesuaikan path file kamu
+                "TCN Tuned": "models/tuned/Tuned_TCN_Harian_Best.h5"
+            }
+            curr_model = get_model(paths[model_h])
+            close_s = df_all['Close'].dropna()
+            
+            # Tampilan Metrik
+            last_p = float(close_s.iloc[-1])
+            pred_p = predict_stock(curr_model, close_s.values, 60)
+            
+            c1, c2 = st.columns(2)
+            c1.metric("Harga Aktual Terakhir", f"Rp {last_p:,.2f}")
+            c2.metric(f"Prediksi {model_h}", f"Rp {pred_p:,.2f}")
+            
+            # Tabel Historis
+            st.write(f"### 🕒 Historis Akurasi 5 Hari Terakhir ({model_h})")
+            hist = []
+            for i in range(1, 6):
+                t_idx = -i
+                act = close_s.iloc[t_idx]
+                p_val = predict_stock(curr_model, close_s.iloc[:t_idx].values, 60)
+                hist.append({
+                    "Tanggal": close_s.index[t_idx].date(),
+                    "Harga Aktual": f"Rp {act:,.2f}",
+                    f"Prediksi": f"Rp {p_val:,.2f}",
+                    "Selisih (Rp)": f"{abs(act - p_val):,.2f}"
+                })
+            st.table(pd.DataFrame(hist))
+        else:
+            st.info("Pilih model untuk melihat analisis harian.")
 
-        st.button('Jalankan Prediksi LSTM (Besok)', on_click=run_pred_h, key='btn_h')
-        if 'res_h' in st.session_state:
-            st.success(f"### Estimasi Harga LSTM Besok: Rp {st.session_state.res_h:,.2f}")
-
-        with st.expander("Lihat Data Historis Harian Lengkap"):
-            st.dataframe(df_all.sort_index(ascending=False), use_container_width=True)
-
-    # --- TAB 2: MINGGUAN ---
+    # --- TAB 2: MINGGUAN (Lookback: 24) ---
     with tab2:
-        st.subheader("Analisis Perbandingan & Prediksi Mingguan (TCN)")
-        df_w = df_all.resample('W-MON').agg({'Open':'first','High':'max','Low':'min','Close':'last','Volume':'sum'}).dropna()
-        last_p_w = float(df_w['Close'].iloc[-1])
-        pred_w = predict_stock(model_m, df_w['Close'].values[:-1], 24)
+        st.subheader("Analisis Multi-Model Mingguan")
+        model_w = st.radio("Pilih Model Mingguan:", ["LSTM Baseline", "TCN Baseline", "LSTM Tuned", "TCN Tuned"], index=None, horizontal=True, key="w_radio")
+        
+        if model_w:
+            df_w = df_all.resample('W-MON').last().dropna()['Close']
+            paths_w = {
+                "LSTM Baseline": "models/baseline/Baseline_LSTM_Mingguan.h5",
+                "TCN Baseline": "models/baseline/Baseline_TCN_Mingguan.h5",
+                "LSTM Tuned": "models/tuned/Tuned_LSTM_Mingguan_Best.h5",
+                "TCN Tuned": "Tuned_TCN_Mingguan_U64_LR0.001_K3.h5"
+            }
+            curr_model_w = get_model(paths_w[model_w])
+            
+            last_p_w = float(df_w.iloc[-1])
+            pred_p_w = predict_stock(curr_model_w, df_w.values, 24)
+            
+            c1w, c2w = st.columns(2)
+            c1w.metric("Harga Aktual Minggu Ini", f"Rp {last_p_w:,.2f}")
+            c2w.metric(f"Prediksi {model_w}", f"Rp {pred_p_w:,.2f}")
+            
+            st.write(f"### 🕒 Historis 5 Minggu Terakhir ({model_w})")
+            hist_w = []
+            for i in range(1, 6):
+                t_idx = -i
+                act = df_w.iloc[t_idx]
+                p_val = predict_stock(curr_model_w, df_w.iloc[:t_idx].values, 24)
+                hist_w.append({"Tanggal": df_w.index[t_idx].date(), "Harga Aktual": f"Rp {act:,.2f}", "Prediksi": f"Rp {p_val:,.2f}", "Selisih": f"{abs(act - p_val):,.2f}"})
+            st.table(pd.DataFrame(hist_w))
+        else:
+            st.info("Pilih model untuk melihat analisis mingguan.")
 
-        col1, col2 = st.columns(2)
-        with col1: st.metric("Harga Aktual Minggu Ini", f"Rp {last_p_w:,.2f}")
-        with col2: st.metric("Prediksi TCN", f"Rp {pred_w:,.2f}")
-
-        st.button('Jalankan Prediksi TCN (Minggu Depan)', on_click=run_pred_w, args=(df_w['Close'].values,), key='btn_w')
-        if 'res_w' in st.session_state:
-            st.success(f"### Estimasi Harga TCN Minggu Depan: Rp {st.session_state.res_w:,.2f}")
-
-        with st.expander("Lihat Data Historis Mingguan Lengkap"):
-            st.dataframe(df_w.sort_index(ascending=False), use_container_width=True)
-
-    # --- TAB 3: BULANAN ---
+    # --- TAB 3: BULANAN (Lookback: 12) ---
     with tab3:
-        st.subheader("Analisis Perbandingan & Prediksi Bulanan (TCN)")
-        df_m = df_all.resample('ME').agg({'Open':'first','High':'max','Low':'min','Close':'last','Volume':'sum'}).dropna()
-        last_p_m = float(df_m['Close'].iloc[-1])
-        pred_m = predict_stock(model_b, df_m['Close'].values[:-1], 12)
+        st.subheader("Analisis Multi-Model Bulanan")
+        model_m = st.radio("Pilih Model Bulanan:", ["LSTM Baseline", "TCN Baseline", "LSTM Tuned", "TCN Tuned"], index=None, horizontal=True, key="m_radio")
+        
+        if model_m:
+            df_m = df_all.resample('ME').last().dropna()['Close']
+            paths_m = {
+                "LSTM Baseline": "models/baseline/Baseline_LSTM_Bulanan.h5",
+                "TCN Baseline": "models/baseline/Baseline_TCN_Bulanan.h5",
+                "LSTM Tuned": "models/tuned/Tuned_LSTM_Bulanan_Best.h5",
+                "TCN Tuned": "Tuned_TCN_Bulanan_U128_LR0.001_K3.h5"
+            }
+            curr_model_m = get_model(paths_m[model_m])
+            
+            last_p_m = float(df_m.iloc[-1])
+            pred_p_m = predict_stock(curr_model_m, df_m.values, 12)
+            
+            c1m, c2m = st.columns(2)
+            c1m.metric("Harga Aktual Bulan Ini", f"Rp {last_p_m:,.2f}")
+            c2m.metric(f"Prediksi {model_m}", f"Rp {pred_p_m:,.2f}")
+            
+            st.write(f"### 🕒 Historis 5 Bulan Terakhir ({model_m})")
+            hist_m = []
+            for i in range(1, 6):
+                t_idx = -i
+                act = df_m.iloc[t_idx]
+                p_val = predict_stock(curr_model_m, df_m.iloc[:t_idx].values, 12)
+                hist_m.append({"Bulan": df_m.index[t_idx].strftime('%B %Y'), "Harga Aktual": f"Rp {act:,.2f}", "Prediksi": f"Rp {p_val:,.2f}", "Selisih": f"{abs(act - p_val):,.2f}"})
+            st.table(pd.DataFrame(hist_m))
+        else:
+            st.info("Pilih model untuk melihat analisis bulanan.")
 
-        k1, k2 = st.columns(2)
-        with k1: st.metric("Harga Aktual Bulan Ini", f"Rp {last_p_m:,.2f}")
-        with k2: st.metric("Prediksi TCN", f"Rp {pred_m:,.2f}")
-
-        st.button('Jalankan Prediksi TCN (Bulan Depan)', on_click=run_pred_m, args=(df_m['Close'].values,), key='btn_m')
-        if 'res_m' in st.session_state:
-            st.success(f"### Estimasi Harga TCN Bulan Depan: Rp {st.session_state.res_m:,.2f}")
-
-        with st.expander("Lihat Data Historis Bulanan Lengkap"):
-            st.dataframe(df_m.sort_index(ascending=False), use_container_width=True)
-
-
-# --- Copyright Cerah & Terang ---
-st.markdown("<br><br>", unsafe_allow_html=True)
-st.markdown(
-    """
-    <div style="text-align: center; background-color: #262730; padding: 20px; border-radius: 10px; border: 1px solid #444;">
-        <p style="margin:0; font-size: 14px; color: #DDDDDD;">© 2026 Skripsi Informatika - Universitas AMIKOM Yogyakarta</p>
-        <p style="margin:5px 0; font-size: 18px; font-weight: bold; color: #FFFFFF;">AZMI AZIZ | 22.11.4903</p>
-        <p style="margin:0; font-size: 15px;">
-            <a href="https://www.instagram.com/_azmiazzz/?hl=id" target="_blank" style="color: #00AAFF; text-decoration: none; font-weight: bold;">Instagram: @_azmiazzz</a>
-        </p>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-
-
-
-
-
-
-
-
+# --- FOOTER ---
+st.markdown("<br><hr>", unsafe_allow_html=True)
+st.markdown(f"<div style='text-align: center;'><b>AZMI AZIZ | 22.11.4903</b><br>© 2026 Universitas AMIKOM Yogyakarta</div>", unsafe_allow_html=True)
