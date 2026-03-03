@@ -68,121 +68,98 @@ df_all = get_data_manual()
 
 # 3. Struktur Dashboard Utama
 if not df_all.empty:
-  # 1. Tambahkan tab_comp di urutan pertama
+ # 1. Tambahkan tab_comp di urutan pertama
     tab_comp, tab1, tab2, tab3 = st.tabs(["📊 Perbandingan Prediksi", "📅 Harian", "🗓️ Mingguan", "📊 Bulanan"])
 
     with tab_comp:
         st.subheader("🚀 Komparasi Prediksi Harga: 12 Skenario Model")
-        st.write("Berikut adalah hasil prediksi harga real-time dari seluruh variasi model LSTM dan TCN pada setiap timeframe.")
-
-        # --- Tambahan CSS Khusus untuk Kartu (Agar Menarik) ---
+        
+        # --- CSS UNTUK TAMPILAN KARTU ---
         st.markdown("""
             <style>
-                .stock-card {
-                    background-color: #1E1E1E; /* Warna latar kartu sedikit lebih terang dari background utama */
-                    border-radius: 15px; /* Sudut tumpul */
+                .card-container {
+                    background-color: #1E1E1E;
+                    border-radius: 15px;
                     padding: 20px;
+                    border: 1px solid #333;
+                    box-shadow: 2px 4px 10px rgba(0,0,0,0.3);
                     margin-bottom: 20px;
-                    border: 1px solid #333; /* Garis tepi tipis */
-                    box-shadow: 2px 4px 10px rgba(0,0,0,0.3); /* Efek bayangan */
-                    transition: transform 0.2s; /* Efek halus saat di-hover */
                 }
-                .stock-card:hover {
-                    transform: translateY(-5px); /* Kartu sedikit terangkat saat pointer di atasnya */
-                    border-color: #00AAFF; /* Warna garis tepi berubah saat hover */
-                }
-                .card-header {
-                    font-size: 22px;
-                    font-weight: bold;
-                    color: #FFFFFF;
-                    border-bottom: 2px solid #00AAFF; /* Garis bawah judul kartu */
-                    padding-bottom: 10px;
-                    margin-bottom: 15px;
-                    display: flex;
-                    align-items: center;
-                    gap: 10px;
-                }
-                .model-row {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    margin-bottom: 12px;
-                    padding: 8px;
-                    background-color: rgba(255,255,255,0.03);
-                    border-radius: 8px;
-                }
-                .model-name {
-                    color: #AAAAAA;
-                    font-size: 16px;
-                }
-                .model-price {
-                    color: #00FFCC; /* Warna cyan cerah untuk harga */
+                .card-title {
                     font-size: 20px;
                     font-weight: bold;
-                    font-family: 'Courier New', monospace; /* Font monospace agar angka rapi */
+                    color: #00AAFF;
+                    border-bottom: 1px solid #444;
+                    padding-bottom: 10px;
+                    margin-bottom: 15px;
+                }
+                .model-box {
+                    display: flex;
+                    justify-content: space-between;
+                    background: rgba(255,255,255,0.05);
+                    padding: 10px;
+                    border-radius: 8px;
+                    margin-bottom: 8px;
+                }
+                .price-text {
+                    color: #00FFCC;
+                    font-weight: bold;
+                    font-family: monospace;
                 }
             </style>
         """, unsafe_allow_html=True)
 
-        # Menyiapkan data input untuk masing-masing timeframe
+        # Ambil data input
         close_h = df_all['Close'].dropna().values
         close_w = df_all['Close'].resample('W-MON').last().dropna().values
         close_m = df_all['Close'].resample('ME').last().dropna().values
 
-        # Definisi Model & Path (12 Model) - Sama seperti sebelumnya
-        configs = {
-            "HARIAN": {"lb": 60, "data": close_h, "icon": "📅", "models": [
-                {"name": "LSTM Standar", "path": "models/baseline/Baseline_LSTM_Harian.h5"},
-                {"name": "TCN Standar", "path": "models/baseline/Baseline_TCN_Harian.h5"},
-                {"name": "LSTM Khusus", "path": "models/tuned/Tuned_LSTM_Harian_U64_LR0.001_KN.h5"},
-                {"name": "TCN Khusus", "path": "models/tuned/Tuned_TCN_Harian_U128_LR0.001_K2.h5"}
+        # Mapping Config
+        tfs = {
+            "HARIAN": {"data": close_h, "lb": 60, "icon": "📅", "models": [
+                ("LSTM Standar", "models/baseline/Baseline_LSTM_Harian.h5"),
+                ("TCN Standar", "models/baseline/Baseline_TCN_Harian.h5"),
+                ("LSTM Khusus", "models/tuned/Tuned_LSTM_Harian_U64_LR0.001_KN.h5"),
+                ("TCN Khusus", "models/tuned/Tuned_TCN_Harian_U128_LR0.001_K2.h5")
             ]},
-            "MINGGUAN": {"lb": 24, "data": close_w, "icon": "🗓️", "models": [
-                {"name": "LSTM Standar", "path": "models/baseline/Baseline_LSTM_Mingguan.h5"},
-                {"name": "TCN Standar", "path": "models/baseline/Baseline_TCN_Mingguan.h5"},
-                {"name": "LSTM Khusus", "path": "models/tuned/Tuned_LSTM_Mingguan_U64_LR0.001_KN.h5"},
-                {"name": "TCN Khusus", "path": "models/tuned/Tuned_TCN_Mingguan_U64_LR0.001_K3.h5"}
+            "MINGGUAN": {"data": close_w, "lb": 24, "icon": "🗓️", "models": [
+                ("LSTM Standar", "models/baseline/Baseline_LSTM_Mingguan.h5"),
+                ("TCN Standar", "models/baseline/Baseline_TCN_Mingguan.h5"),
+                ("LSTM Khusus", "models/tuned/Tuned_LSTM_Mingguan_U64_LR0.001_KN.h5"),
+                ("TCN Khusus", "models/tuned/Tuned_TCN_Mingguan_U64_LR0.001_K3.h5")
             ]},
-            "BULANAN": {"lb": 12, "data": close_m, "icon": "📊", "models": [
-                {"name": "LSTM Standar", "path": "models/baseline/Baseline_LSTM_Bulanan.h5"},
-                {"name": "TCN Standar", "path": "models/baseline/Baseline_TCN_Bulanan.h5"},
-                {"name": "LSTM Khusus", "path": "models/tuned/Tuned_LSTM_Bulanan_U128_LR0.0001_KN.h5"},
-                {"name": "TCN Khusus", "path": "models/tuned/Tuned_TCN_Bulanan_U128_LR0.001_K3.h5"}
+            "BULANAN": {"data": close_m, "lb": 12, "icon": "📊", "models": [
+                ("LSTM Standar", "models/baseline/Baseline_LSTM_Bulanan.h5"),
+                ("TCN Standar", "models/baseline/Baseline_TCN_Bulanan.h5"),
+                ("LSTM Khusus", "models/tuned/Tuned_LSTM_Bulanan_U128_LR0.0001_KN.h5"),
+                ("TCN Khusus", "models/tuned/Tuned_TCN_Bulanan_U128_LR0.001_K3.h5")
             ]}
         }
 
-        # Menampilkan dalam 3 Kolom Besar (Harian, Mingguan, Bulanan)
+        # Render Kolom
         cols = st.columns(3)
-
-        for i, (tf_name, tf_conf) in enumerate(configs.items()):
+        for i, (name, config) in enumerate(tfs.items()):
             with cols[i]:
-                # Mulai membuat Kartu menggunakan HTML
-                card_html = f"""
-                <div class="stock-card">
-                    <div class="card-header">
-                        <span>{tf_conf['icon']}</span> {tf_name}
-                    </div>
-                """
+                # Header Kartu (HTML)
+                st.markdown(f"""<div class="card-container"><div class="card-title">{config['icon']} {name}</div>""", unsafe_allow_html=True)
                 
-                # Isi kartu dengan 4 model
-                for m in tf_conf['models']:
-                    # Hitung Prediksi (Proses ini tetap berjalan di Python)
-                    model_obj = get_model(m['path'])
-                    pred = predict_stock(model_obj, tf_conf['data'], tf_conf['lb'])
-                    
-                    # Tambahkan baris model ke HTML kartu
-                    card_html += f"""
-                    <div class="model-row">
-                        <span class="model-name">{m['name']}</span>
-                        <span class="model-price">Rp {pred:,.2f}</span>
-                    </div>
-                    """
+                # Isi Model (Looping Python + Markdown untuk tampilan)
+                for m_name, m_path in config['models']:
+                    try:
+                        m_obj = get_model(m_path)
+                        val = predict_stock(m_obj, config['data'], config['lb'])
+                        
+                        # Tampilkan tiap baris model menggunakan container HTML
+                        st.markdown(f"""
+                            <div class="model-box">
+                                <span style="color:#AAA;">{m_name}</span>
+                                <span class="price-text">Rp {val:,.2f}</span>
+                            </div>
+                        """, unsafe_allow_html=True)
+                    except Exception as e:
+                        st.error(f"Error loading {m_name}")
                 
-                # Tutup Div Kartu
-                card_html += "</div>"
-                
-                # Tampilkan Kartu HTML di Streamlit
-                st.markdown(card_html, unsafe_allow_html=True)
+                st.markdown("</div>", unsafe_allow_html=True) # Tutup card-container
 
     # --- TAB 1: HARIAN (Lookback: 60) ---
     with tab1:
@@ -340,6 +317,7 @@ st.markdown(f"""
         </a>
     </div>
 """, unsafe_allow_html=True)
+
 
 
 
