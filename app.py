@@ -68,13 +68,13 @@ df_all = get_data_manual()
 
 # 3. Struktur Dashboard Utama
 if not df_all.empty:
- # 1. Tambahkan tab_comp di urutan pertama
+# 1. Tambahkan tab_comp di urutan pertama
     tab_comp, tab1, tab2, tab3 = st.tabs(["📊 Perbandingan Prediksi", "📅 Harian", "🗓️ Mingguan", "📊 Bulanan"])
 
     with tab_comp:
         st.subheader("🚀 Komparasi Prediksi Harga: 12 Skenario Model")
         
-        # --- CSS UNTUK TAMPILAN KARTU ---
+        # --- CSS UNTUK TAMPILAN KARTU YANG MENYATU ---
         st.markdown("""
             <style>
                 .card-container {
@@ -82,29 +82,38 @@ if not df_all.empty:
                     border-radius: 15px;
                     padding: 20px;
                     border: 1px solid #333;
-                    box-shadow: 2px 4px 10px rgba(0,0,0,0.3);
-                    margin-bottom: 20px;
+                    box-shadow: 2px 4px 10px rgba(0,0,0,0.5);
+                    margin-bottom: 25px;
+                    min-height: 350px;
                 }
                 .card-title {
-                    font-size: 20px;
+                    font-size: 22px;
                     font-weight: bold;
                     color: #00AAFF;
-                    border-bottom: 1px solid #444;
-                    padding-bottom: 10px;
-                    margin-bottom: 15px;
+                    border-bottom: 2px solid #00AAFF;
+                    padding-bottom: 12px;
+                    margin-bottom: 20px;
+                    text-align: center;
                 }
                 .model-box {
                     display: flex;
                     justify-content: space-between;
                     background: rgba(255,255,255,0.05);
-                    padding: 10px;
-                    border-radius: 8px;
-                    margin-bottom: 8px;
+                    padding: 12px;
+                    border-radius: 10px;
+                    margin-bottom: 10px;
+                    border: 1px solid rgba(255,255,255,0.1);
+                }
+                .model-label {
+                    color: #CCCCCC;
+                    font-size: 14px;
+                    font-weight: 500;
                 }
                 .price-text {
                     color: #00FFCC;
                     font-weight: bold;
-                    font-family: monospace;
+                    font-family: 'Courier New', monospace;
+                    font-size: 18px;
                 }
             </style>
         """, unsafe_allow_html=True)
@@ -114,8 +123,8 @@ if not df_all.empty:
         close_w = df_all['Close'].resample('W-MON').last().dropna().values
         close_m = df_all['Close'].resample('ME').last().dropna().values
 
-        # Mapping Config
-        tfs = {
+        # Mapping Config (Sesuai 12 model kamu)
+        tfs_config = {
             "HARIAN": {"data": close_h, "lb": 60, "icon": "📅", "models": [
                 ("LSTM Standar", "models/baseline/Baseline_LSTM_Harian.h5"),
                 ("TCN Standar", "models/baseline/Baseline_TCN_Harian.h5"),
@@ -136,31 +145,33 @@ if not df_all.empty:
             ]}
         }
 
-        # Render Kolom
+        # Render 3 Kolom
         cols = st.columns(3)
-        for i, (name, config) in enumerate(tfs.items()):
+        
+        for i, (name, config) in enumerate(tfs_config.items()):
             with cols[i]:
-                # Header Kartu (HTML)
-                st.markdown(f"""<div class="card-container"><div class="card-title">{config['icon']} {name}</div>""", unsafe_allow_html=True)
+                # --- PROSES HITUNG DULU SEMUA HARGA ---
+                html_content = f'<div class="card-container"><div class="card-title">{config["icon"]} {name}</div>'
                 
-                # Isi Model (Looping Python + Markdown untuk tampilan)
                 for m_name, m_path in config['models']:
                     try:
                         m_obj = get_model(m_path)
                         val = predict_stock(m_obj, config['data'], config['lb'])
                         
-                        # Tampilkan tiap baris model menggunakan container HTML
-                        st.markdown(f"""
+                        # Gabungkan baris model ke dalam satu string HTML
+                        html_content += f"""
                             <div class="model-box">
-                                <span style="color:#AAA;">{m_name}</span>
+                                <span class="model-label">{m_name}</span>
                                 <span class="price-text">Rp {val:,.2f}</span>
                             </div>
-                        """, unsafe_allow_html=True)
-                    except Exception as e:
-                        st.error(f"Error loading {m_name}")
+                        """
+                    except:
+                        html_content += f'<div class="model-box"><span class="model-label">{m_name}</span><span style="color:red;">Error</span></div>'
                 
-                st.markdown("</div>", unsafe_allow_html=True) # Tutup card-container
-
+                html_content += "</div>" # Tutup container
+                
+                # --- TAMPILKAN SEKALI JALAN ---
+                st.markdown(html_content, unsafe_allow_html=True)
     # --- TAB 1: HARIAN (Lookback: 60) ---
     with tab1:
         st.subheader("Analisis Perbandingan & Prediksi Harian")
@@ -317,6 +328,7 @@ st.markdown(f"""
         </a>
     </div>
 """, unsafe_allow_html=True)
+
 
 
 
