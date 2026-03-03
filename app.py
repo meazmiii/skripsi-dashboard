@@ -67,33 +67,31 @@ with col_tgl:
 df_all = get_data_manual()
 
 # 3. Struktur Dashboard Utama
-if not df_all.empty:
 # 3. Struktur Dashboard Utama
 if not df_all.empty:
-    # 1. Inisialisasi Tab
+    # 1. Inisialisasi Tab (Komparasi diletakkan di awal)
     tab_comp, tab1, tab2, tab3 = st.tabs(["📊 Perbandingan Prediksi", "📅 Harian", "🗓️ Mingguan", "📊 Bulanan"])
 
-    # --- ISI TAB KOMPARASI (12 MODEL + HARGA AKTUAL) ---
+    # ==========================================
+    # --- TAB KOMPARASI (12 MODEL + AKTUAL) ---
+    # ==========================================
     with tab_comp:
         st.subheader("🚀 Komparasi Prediksi Harga: 12 Skenario Model")
         
-        # Penyiapan Data & Harga Aktual
-        # Harian
-        df_h = df_all['Close'].dropna()
-        last_h = float(df_h.iloc[-1])
+        # Penyiapan Data & Harga Aktual Khusus Tab Komparasi
+        d_h = df_all['Close'].dropna()
+        val_act_h = float(d_h.iloc[-1])
         
-        # Mingguan
-        df_w_tmp = df_all['Close'].resample('W-MON').last().dropna()
-        last_w = float(df_w_tmp.iloc[-1])
+        d_w = df_all['Close'].resample('W-MON').last().dropna()
+        val_act_w = float(d_w.iloc[-1])
         
-        # Bulanan
-        df_m_tmp = df_all['Close'].resample('ME').last().dropna()
-        last_m = float(df_m_tmp.iloc[-1])
+        d_m = df_all['Close'].resample('ME').last().dropna()
+        val_act_m = float(d_m.iloc[-1])
 
-        # Konfigurasi Dictionary agar Loop Rapi
-        tfs_config = {
+        # Data Config untuk Looping
+        komparasi_map = {
             "HARIAN": {
-                "data": df_h.values, "last": last_h, "lb": 60, "icon": "📅",
+                "data": d_h.values, "act": val_act_h, "lb": 60, "ico": "📅",
                 "mods": [
                     ("LSTM Standar", "models/baseline/Baseline_LSTM_Harian.h5"),
                     ("TCN Standar", "models/baseline/Baseline_TCN_Harian.h5"),
@@ -102,7 +100,7 @@ if not df_all.empty:
                 ]
             },
             "MINGGUAN": {
-                "data": df_w_tmp.values, "last": last_w, "lb": 24, "icon": "🗓️",
+                "data": d_w.values, "act": val_act_w, "lb": 24, "ico": "🗓️",
                 "mods": [
                     ("LSTM Standar", "models/baseline/Baseline_LSTM_Mingguan.h5"),
                     ("TCN Standar", "models/baseline/Baseline_TCN_Mingguan.h5"),
@@ -111,7 +109,7 @@ if not df_all.empty:
                 ]
             },
             "BULANAN": {
-                "data": df_m_tmp.values, "last": last_m, "lb": 12, "icon": "📊",
+                "data": d_m.values, "act": val_act_m, "lb": 12, "ico": "📊",
                 "mods": [
                     ("LSTM Standar", "models/baseline/Baseline_LSTM_Bulanan.h5"),
                     ("TCN Standar", "models/baseline/Baseline_TCN_Bulanan.h5"),
@@ -121,37 +119,36 @@ if not df_all.empty:
             }
         }
 
-        # Render Kolom Utama
-        c_main = st.columns(3)
+        # Render 3 Kolom
+        c_comp = st.columns(3)
         
-        for idx, (tf_name, conf) in enumerate(tfs_config.items()):
-            with c_main[idx]:
+        for idx, (tf_key, conf) in enumerate(komparasi_map.items()):
+            with c_comp[idx]:
                 with st.container(border=True):
-                    st.markdown(f"### {conf['icon']} {tf_name}")
+                    st.markdown(f"### {conf['ico']} {tf_key}")
                     
                     # Box Harga Aktual (Highlight Emas)
                     st.markdown(f"""
                         <div style="background-color: rgba(255, 215, 0, 0.1); padding: 10px; border-radius: 10px; border: 1px solid gold; text-align: center; margin-bottom: 15px;">
                             <p style="margin:0; color: gold; font-size: 11px; font-weight: bold;">HARGA AKTUAL</p>
-                            <p style="margin:0; color: white; font-size: 20px; font-weight: bold;">Rp {conf['last']:,.2f}</p>
+                            <p style="margin:0; color: white; font-size: 20px; font-weight: bold;">Rp {conf['act']:,.2f}</p>
                         </div>
                     """, unsafe_allow_html=True)
                     
                     st.write("---")
                     
-                    # List Prediksi Model
+                    # Looping Prediksi
                     for m_name, m_path in conf['mods']:
                         try:
                             m_obj = get_model(m_path)
                             p_val = predict_stock(m_obj, conf['data'], conf['lb'])
                             
-                            # Layout baris: Nama Model | Harga Prediksi
-                            row_cols = st.columns([1.2, 1])
-                            row_cols[0].markdown(f"<p style='color:#AAA; font-size:13px; margin:0;'>{m_name}</p>", unsafe_allow_html=True)
-                            row_cols[1].markdown(f"<p style='color:#00FFCC; font-weight:bold; font-family:monospace; font-size:15px; margin:0; text-align:right;'>Rp {p_val:,.2f}</p>", unsafe_allow_html=True)
+                            r_col = st.columns([1.2, 1])
+                            r_col[0].markdown(f"<p style='color:#AAA; font-size:13px; margin:0;'>{m_name}</p>", unsafe_allow_html=True)
+                            r_col[1].markdown(f"<p style='color:#00FFCC; font-weight:bold; font-family:monospace; font-size:15px; margin:0; text-align:right;'>Rp {p_val:,.2f}</p>", unsafe_allow_html=True)
                         except:
-                            st.error(f"Error: {m_name}")
-                        st.write("") # Spacer antar baris
+                            st.error(f"Gagal muat {m_name}")
+                        st.write("") # Spacer baris
     # --- TAB 1: HARIAN (Lookback: 60) ---
     with tab1:
         st.subheader("Analisis Perbandingan & Prediksi Harian")
@@ -308,6 +305,7 @@ st.markdown(f"""
         </a>
     </div>
 """, unsafe_allow_html=True)
+
 
 
 
